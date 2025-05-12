@@ -72,7 +72,7 @@ function run_optimization_problem(
     ]
 
     problem = minimize(objective, constraints)
-    solve!(problem, SCS.Optimizer; silent_solver=true)
+    solve!(problem, SCS.Optimizer; silent=true)
 
     return evaluate(u), evaluate(α), evaluate(δ)
 end
