@@ -2,6 +2,7 @@ using MRTA
 using ControlSystems
 using CairoMakie
 using LaTeXStrings
+using Logging
 
 num_robots = 1  # Number of robots
 num_tasks = 3  # Number of tasks
@@ -40,15 +41,17 @@ c[1, :] = [10 1 0 5 1 0]
 x = zeros(T, 12)
 slack = zeros(T, num_tasks)
 
+sysd = c2d(sys, dt)
+
+Ad = sysd.A
+Bd = sysd.B
+
 for (i, tᵢ) in enumerate(t)
     u, α, δ = run_optimization_problem(c[i, 1:3], goals)
     control = [u; 0; 0; 0]
 
-    # Print optimization results
-    println("Time step $i:")
-    println("  Control input u: $u")
-    println("  Assignment variables α: $α")
-    println("  Slack variables δ: $δ")
+    # Log optimization results
+    @info "Time step $i" control_input=u assignment_vars=α slack_vars=δ
 
     slack[i, :] = δ
 
@@ -71,11 +74,6 @@ for (i, tᵢ) in enumerate(t)
         x[i, 7:9] = r[i, 4:end]
         x[i, 10:end] = ṙ[i, 4:end]
 
-        sysd = c2d(sys, dt)
-
-        Ad = sysd.A
-        Bd = sysd.B
-
         x[i+1, :] = Ad * x[i, :] + Bd * γ
 
         r[i+1, 1:3] = x[i+1, 1:3]
@@ -88,7 +86,7 @@ for (i, tᵢ) in enumerate(t)
 end
 
 function plot_robots_trajectory_makie(c_plot, r_plot, goals_plot)
-    fig = Figure(resolution = (800, 650)) # Increased resolution, adjusted height for legend
+    fig = Figure(size=(800, 650)) # Increased resolution, adjusted height for legend
     ax = Axis(fig[1, 1],
         title="Planar Robot Trajectory",
         titlesize=20,
@@ -102,12 +100,12 @@ function plot_robots_trajectory_makie(c_plot, r_plot, goals_plot)
         rightspinevisible=false,
         topspinevisible=false,
         bottomspinevisible=true,
-        xgridvisible = true,
-        ygridvisible = true,
-        xgridstyle = :dash,
-        ygridstyle = :dash,
-        xgridcolor = :gray85, # Lighter grid
-        ygridcolor = :gray85  # Lighter grid
+        xgridvisible=true,
+        ygridvisible=true,
+        xgridstyle=:dash,
+        ygridstyle=:dash,
+        xgridcolor=:gray85, # Lighter grid
+        ygridcolor=:gray85  # Lighter grid
     )
 
     # Plot trajectories
@@ -131,15 +129,15 @@ function plot_robots_trajectory_makie(c_plot, r_plot, goals_plot)
 
     # Add legend for line plots at the bottom, horizontal, no frame, no title
     Legend(fig[2, 1], # Position below the axis
-           [line_cluster, line_robot1, line_robot2], # Plot elements
-           ["cluster", "robot 1", "robot 2"], # Labels
-           orientation = :horizontal,
-           labelsize = 14,
-           framevisible = false,
-           titlevisible = false, # Explicitly hide title
-           tellheight = true, # Allow legend to take vertical space
-           padding = (0,0,0,0) # Reduce padding around legend entries
-           )
+        [line_cluster, line_robot1, line_robot2], # Plot elements
+        ["cluster", "robot 1", "robot 2"], # Labels
+        orientation=:horizontal,
+        labelsize=14,
+        framevisible=false,
+        titlevisible=false, # Explicitly hide title
+        tellheight=true, # Allow legend to take vertical space
+        padding=(0, 0, 0, 0) # Reduce padding around legend entries
+    )
 
     return fig
 end

@@ -1,11 +1,12 @@
 module Kinematics
 
-using ForwardDiff: jacobian
+using ForwardDiff: jacobian, hessian
 
 export forward_pose,
     inverse_pose,
     forward_kin_jacobian,
     inverse_kin_jacobian,
+    dot_forward_jacobian_exact,
     dot_forward_jacobian
 
 """
@@ -125,14 +126,7 @@ Returns:
 function inverse_kin_jacobian(cluster_pose::AbstractVector{<:Real})::Matrix{<:Real}
     length(cluster_pose) == 6 || throw(ArgumentError("Cluster pose vector must have 6 elements"))
 
-    f⁻¹(x) = [
-        x[1] + x[3] * sin(x[4]);
-        x[2] + x[3] * cos(x[4]);
-        x[4] + x[5];
-        x[1] - x[3] * sin(x[4]);
-        x[2] - x[3] * cos(x[4]);
-        x[4] + x[6]
-    ]
+    f⁻¹(x) = inverse_pose(cluster_pose)
 
     return jacobian(f⁻¹, cluster_pose)
 end
@@ -160,7 +154,7 @@ Arguments:
 Returns:
   Jₜ: time derivative of the Jacobian matrix (6×6 matrix)
 """
-function dot_forward_jacobian(r::AbstractVector{<:Real}, dr::AbstractVector{<:Real})::Matrix{<:Real}
+function dot_forward_jacobian_exact(r::AbstractVector{<:Real}, dr::AbstractVector{<:Real})::Matrix{<:Real}
     length(r) == 6 || throw(ArgumentError("Robot pose vector must have 6 elements"))
     length(dr) == 6 || throw(ArgumentError("Robot velocity vector must have 6 elements"))
 
@@ -201,6 +195,28 @@ function dot_forward_jacobian(r::AbstractVector{<:Real}, dr::AbstractVector{<:Re
     Jₜ[6, :] = Jₜ[5, :]
 
     return Jₜ
+end
+
+function dot_forward_jacobian(r::AbstractVector{<:Real}, dr::AbstractVector{<:Real})::Matrix{<:Real}
+    length(r) == 6 || throw(ArgumentError("Robot pose vector must have 6 elements"))
+    length(dr) == 6 || throw(ArgumentError("Robot velocity vector must have 6 elements"))
+
+    f(x) = forward_pose(x)
+
+    # Calculate each Hessian in a loop and stack them vertically
+    H = zeros(0, length(r))  # Initialize an empty matrix to store Hessians
+    for i in 1:length(f(r))
+        Hi = hessian(x -> f(x)[i], r)
+        H = vcat(H, Hi)
+    end
+
+    # Calculate dJ by applying both Hessians to dx and reshaping
+    dJ_vec = H * dr
+
+    # Reshape into a square matrix with dimensions matching the Jacobian
+    dJ = Matrix(reshape(dJ_vec, 6, 6)')
+
+    return dJ
 end
 
 end # module Kinematics
